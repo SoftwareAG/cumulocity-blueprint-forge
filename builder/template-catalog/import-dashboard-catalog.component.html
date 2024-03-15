@@ -1,0 +1,85 @@
+<div class="modal-header text-center bg-primary">
+    <h4 class="text-uppercase" style="margin:0; letter-spacing: 0.15em;">Import Dashboard to Catalog
+    </h4>
+</div>
+<div class="modal-body">
+    <div *ngIf="dashboardId" class="row template-detail-container modal-inner-scroll">
+        <div class="col-md-5">
+            <form name="newImportDashboardForm" #newImportDashboardForm="ngForm" class="">
+                <div class="form-group">
+                    <label for="name"><span>Name</span></label>
+                    <input type="text" class="form-control" id="name" name="name" max="25"
+                    placeholder="Dashboard Title/Name (required)" required
+                    [(ngModel)]="importDashboard.title">
+                </div>
+                <div class="form-group">
+                    <label for="description"><span>Description</span></label>
+                    <textarea type="text" class="form-control" id="description" name="description"
+                    placeholder="Dashboard Description" required
+                    [(ngModel)]="importDashboard.description"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="availability" class="m-r-8 d-inline-block">Select availability</label>
+                        <button
+                        class="m-t-4 btn-help btn-help--sm"
+                        [attr.aria-label]="'Help'"
+                        [popover]="helpTemplatePopover"
+                        placement="right"
+                        triggers="focus"
+                        type="button"
+                      ></button>
+                    <select name="availability" id="availability" [(ngModel)]="importDashboard.availability" required>
+                        <option value="SHARED">Share within tenant</option>
+                        <!-- <option value="MARKET" disabled>Share with market</option> -->
+                        <option value="EXPORT">Export template</option>
+                    </select>
+                    
+                </div>
+                <div class="form-group">
+                    <label for="imageDBPreview">Dashboard preview Image</label>
+                    <input type="file" id="imageDBPreview" aria-describedby="helpinput" class="form-control"
+                        (change)="onImageSelected($event.target.files, 'dbPreview')" />
+                </div>
+                <div class="form-group">
+                    <label for="imageThumbnail">Device Image (Thumbnail)</label>
+                    <input type="file" id="imageThumbnail" aria-describedby="helpinput" class="form-control"
+                        (change)="onImageSelected($event.target.files, 'thumbnail')" />
+                        <div >
+                            <label for="imageThumbnailPreivew">Device preview:</label>
+                            <div class="thumbnail-image-preview">
+                                <img  [src]="thumbnailPreviewImageURL !== '' ? thumbnailPreviewImageURL : './img/no-image.png'" />
+                            </div>
+                        </div>
+                </div>
+            </form>
+        </div>
+        <div class="col-md-7">
+            <div class="template-preview">
+                <label for="Preview"><span>Preview:</span></label>
+                <img style="width: 100%;" [src]="previewImageURL !== '' ? previewImageURL : './img/no-image.png'" />
+            </div>
+            <div *ngIf="dashboardDetail.input?.dependencies?.length > 0">
+                <label for="Depedencies"><span>Dependencies:</span></label>
+                <ul class="list-group">
+                    <ng-container *ngFor="let dependency of dashboardDetail.input.dependencies; let i = index" >
+                    <li class="list-group-item">
+                            <a href="{{dependency.repository}}" target="_blank">{{dependency.title}} </a>
+                    </li>
+                    </ng-container>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+<ng-template #helpTemplatePopover>
+    <div [innerHtml]="helpTemplatePopoverText"></div>
+  </ng-template>
+<div class="modal-footer">
+    <button type="button" class="btn btn-default" (click)="onCancelButtonClicked()">Cancel</button>
+    <button type="button" class="btn btn-primary" [disabled]="!isImportButtonEnabled()" (click)="onSaveButtonClicked()"
+        *ngIf="this.importDashboard.availability !== 'EXPORT'; else exportButton">Import</button>
+</div>
+<ng-template #exportButton>
+    <button type="button" class="btn btn-primary" [disabled]="!isImportButtonEnabled()" (click)="onSaveButtonClicked()"
+        >Export</button>
+</ng-template>

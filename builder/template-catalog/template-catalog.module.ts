@@ -29,6 +29,9 @@ import { NgSelectModule } from "@ng-select/ng-select";
 import {TooltipModule} from "ngx-bootstrap/tooltip";
 import { WidgetCatalogService } from "./../widget-catalog/widget-catalog.service";
 import { BsDropdownModule } from "ngx-bootstrap/dropdown";
+import { PopoverModule } from "ngx-bootstrap/popover";
+import { ImportDashboardCatalogModalComponent } from "../template-catalog/import-dashboard-catalog.component";
+
 
 @NgModule({
     imports: [
@@ -40,11 +43,13 @@ import { BsDropdownModule } from "ngx-bootstrap/dropdown";
         DeviceSelectorModalModule,
         NgSelectModule,
         TooltipModule,
+        PopoverModule.forRoot(),
         BsDropdownModule.forRoot(),
     ],
     declarations: [
         TemplateCatalogModalComponent,
-        TemplateUpdateModalComponent
+        TemplateUpdateModalComponent,
+        ImportDashboardCatalogModalComponent
     ],
     entryComponents: [
         TemplateCatalogModalComponent,

@@ -12,7 +12,7 @@
         <div class="">
             <div class="card-header">
             <!-- Search -->
-            <div id="searchWidget" class="col-xs-12 col-sm-12 col-md-12 col-lg-12 input-group input-group-search" style="padding-right: 0px;padding-left: 0px;">
+            <div id="searchWidget" class="col-xs-8 col-sm-8 col-md-8 col-lg-8 input-group input-group-search" style="padding-right: 0px;padding-left: 0px;">
                 <input
                 type="search"
                 class="form-control"
@@ -30,26 +30,54 @@
                 ></i>
                 </span>
             </div>
+            <div class="col-xs-3 col-sm-3 col-md-3 col-lg-3">
+                <div class="c8y-select-wrapper">
+                    <select class="form-control" [(ngModel)]="filter" style="border-radius:20px;"
+                        id="dashboardView" (change)="onFilterChange()">
+                        <option value="1">All</option>
+                        <option value="2">Devices</option>
+                        <option value="3">General</option>
+                        <option value="4">Custom</option>
+                        <option value="5">Tenant Only</option>
+                    </select>
+                </div>
+            </div>
+            <div class="col-xs-1 col-sm-1 col-md-1 col-lg-1 dflex-center">
+                <button class="btn btn-dot" title="Import Dashboard Template" [popover]="importPopover" popoverTitle="Import Dashboard Template"
+                    placement="right" type="button"><i class="c8y-icon dlt-c8y-icon-upload"></i></button>
+            </div>
             </div>
         </div>
         <div class="row  modal-inner-scroll " style="padding-bottom: 20px;">
-        <div *ngFor="let template of filterTemplates" class="col-md-4 col-sm-6 col-xs-12 card-demo-container">
+        <div *ngFor="let template of searchFilterTemplates" class="col-md-4 col-sm-6 col-xs-12 card-demo-container">
             <div class="flip-card">
                 <div class="card-demo flip-card-inner">
                     <div class="flip-card-front">
-                        <img class="card-image"
+                        <div *ngIf="isThumbnailLoading"><c8y-loading></c8y-loading></div>
+                        <img *ngIf="!isThumbnailLoading" class="card-image" [ngClass]="{'card-image-availability': template.availability}"
                             [src]="template?.thumbnail && template?.thumbnail != '' ? template?.thumbnail : './img/placeholder.png'" />
                         <div class="card-data">
                             <h3 [title]="template?.title">
                                 <b>{{ template?.title }} </b>
                             </h3>
                         </div>
+                        <button class="btn-clean">
+                            <span class="label label-info"><ng-container *ngTemplateOutlet="templateLabel; context: { $implicit: template }"></ng-container></span>
+                        </button>
                         <div *ngIf="template.comingSoon==true" class="flip-card-font-coming-soon">
                         </div>
                         <div *ngIf="template.comingSoon==true" class="coming-soon-tag">Coming soon</div>
                     </div>
                     <div class="flip-card-back" [ngClass]="template.comingSoon==true?'coming-soon-back':''">
                         <div *ngIf="template.comingSoon==true" class="coming-soon-tag-backside">Coming Soon</div>
+                        <div class="row">
+                                <button class="m-l-16 btn-clean pull-left" style="cursor: default;">
+                                    <span class="label label-info"><ng-container *ngTemplateOutlet="templateLabel; context: { $implicit: template }"></ng-container></span>
+                                </button>
+                                <button *ngIf="template.availability" class="m-r-16 btn-dot btn-dot--warning pull-right pull-right" (click)="deleteTemplate(template)" title="Delete">
+                                    <i [c8yIcon]="'delete'"></i></button>
+                        </div>
+                        
                         <div class="card-desc">
                             {{template?.description?template?.description:'No description available'}}
                         </div>
@@ -104,17 +132,18 @@
                     <div class="form-group" *ngFor="let device of templateDetails.input.devices; let i = index">
                         <label for="device"><span>Device/Sensor/Asset - Type: {{device.type}}</span></label>
                         <div class="input-group">
-                            <input type="text" [readonly]="true" name="selected-device" class="form-control" id="selected-device" 
+                            <input type="text" [readonly]="true" name="selected-device-{{i}}" class="form-control" id="selected-device-{{i}}" 
                             placeholder="Device/Group/Asset/Type" [ngModel]="templateDetails.input.devices[i].reprensentation?.name"/>
                             <div class="input-group-btn dropdown" dropdown>
-                              <button type="button" dropdownToggle class="btn btn-primary dropdown-toggle c8y-dropdown">
-                                <span >{{assetButtonText}}</span>
+                              <button type="button" id="asset-button-{{i}}" dropdownToggle class="btn btn-primary dropdown-toggle c8y-dropdown">
+                                <span *ngIf="device.assetButtonText">{{device.assetButtonText}}</span>
+                                <span *ngIf="!device.assetButtonText">Device/Asset</span>
                                 <span class="caret"></span>
                               </button>
                               <ul class="dropdown-menu dropdown-menu-right" *dropdownMenu>
-                                <li><button type="button" (click)="openDeviceSelectorDialog(i, 0)">Device/Asset</button></li>
-                                <li><button type="button"(click)="openDeviceSelectorDialog(i, 1)">Device Group</button></li>
-                                <li><button type="button"(click)="openDeviceSelectorDialog(i, 2)">Device/Asset Type</button></li>
+                                <li><button type="button" (click)="openDeviceSelectorDialog(device,i, 0)">Device/Asset</button></li>
+                                <li><button type="button"(click)="openDeviceSelectorDialog(device,i, 1)">Device Group</button></li>
+                                <li><button type="button"(click)="openDeviceSelectorDialog(device,i, 2)">Device/Asset Type</button></li>
                               </ul>
                             </div>
                         </div>
@@ -165,7 +194,9 @@
             </div>
             <div class="template-preview">
                 <label for="Preview"><span>Preview:</span></label>
-                <img style="width: 100%;" [src]="templateDetails.preview" />
+                <div *ngIf="isPreviewLoading"><c8y-loading></c8y-loading></div>
+                <img *ngIf="!isPreviewLoading" style="width: 100%;"
+                    [src]="templateDetails.preview && templateDetails.preview !== '' ? templateDetails.preview : './img/no-image.png' " />
             </div>
             <div *ngIf="templateDetails.input?.dependencies?.length > 0">
                 <label for="Depedencies"><span>Dependencies:</span></label>
@@ -213,3 +244,22 @@
     <button *ngIf="isDetailPageDisplayed()" type="button" class="btn btn-primary" (click)="onSaveButtonClicked()"
         [disabled]="!isSaveButtonEnabled()">Create</button>
 </div>
+
+<ng-template #importPopover>
+    <div style="width: 200px;">
+        <div class="form-group">
+            <input type="file" accept=".json" id="importFile" aria-describedby="helpinput" class="form-control"
+                (change)="onFileSelected($event.target.files)" />
+        </div>
+        <button [disabled]="importLoading" type="button" class="btn btn-primary" (click)="onImportClicked()">{{getImportButtonText()}}</button>
+    </div>
+</ng-template>
+
+<ng-template #templateLabel let-template>
+    <ng-container *ngIf="template.manufactur && template.manufactur !==''">Device</ng-container>
+    <ng-container *ngIf="template?.manufactur ===''">General</ng-container>
+    <ng-container *ngIf="template.availability">
+        <ng-container *ngIf="template.availability==='EXPORT'">Custom</ng-container>
+        <ng-container *ngIf="template.availability==='SHARED'">Tenant Only</ng-container>
+    </ng-container>
+</ng-template>

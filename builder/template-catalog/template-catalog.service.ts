@@ -21,7 +21,7 @@ import { Injectable } from "@angular/core";
 import { Observable } from "rxjs";
 import { catchError, map } from "rxjs/operators";
 import { has, get } from "lodash-es";
-import { IManagedObject, IManagedObjectBinary } from '@c8y/client';
+import { IManagedObject, IManagedObjectBinary, IResult } from '@c8y/client';
 import { BinaryDescription, CumulocityDashboard, DependencyDescription, DeviceDescription, TemplateCatalogEntry, TemplateDashboardWidget, TemplateDetails } from "./template-catalog.model";
 import { ApplicationService, InventoryBinaryService, InventoryService } from "@c8y/ngx-components/api";
 import { AppBuilderNavigationService } from "../navigation/app-builder-navigation.service";
@@ -29,6 +29,8 @@ import { Alert, AlertService } from "@c8y/ngx-components";
 import { AppBuilderExternalAssetsService } from 'app-builder-external-assets';
 import { DashboardConfig } from "builder/application-config/dashboard-config.component";
 import { SettingsService } from "../settings/settings.service";
+import { AppDataService } from "../app-data.service";
+import * as _ from "lodash";
 
 const packageJson = require('./../../package.json');
 @Injectable()
@@ -48,7 +50,7 @@ export class TemplateCatalogService {
 
     constructor(private http: HttpClient, private inventoryService: InventoryService,
         private appService: ApplicationService, private navigation: AppBuilderNavigationService,
-        private binaryService: InventoryBinaryService, private alertService: AlertService,
+        private binaryService: InventoryBinaryService, private alertService: AlertService, private appDataService: AppDataService,
         private externalService: AppBuilderExternalAssetsService, private settingsService: SettingsService) {
         this.GATEWAY_URL_GitHubAPI = this.externalService.getURL('GITHUB','gatewayURL_Github');
         this.GATEWAY_URL_GitHubAsset =  this.externalService.getURL('GITHUB','gatewayURL_GitHubAsset');
@@ -109,6 +111,7 @@ export class TemplateCatalogService {
         } else if (this.pkgVersion.includes('rc')) {
             url = url + this.preprodBranchPath;
         }
+        console.log('url sent', url);
         return this.http.get(`${url}`).pipe(map((dashboard: TemplateDetails) => {
             return dashboard;
         }));
@@ -168,14 +171,24 @@ export class TemplateCatalogService {
         return this.binaryService.create(image).then((response) => {
             let imageBinary = response.data as IManagedObjectBinary
             return imageBinary.id;
+        }).catch(err => {
+            console.error(err);
+            this.alertService.danger('Unable to upload File!');
+            return null;
         });
+    }
+
+    // Download image file
+    downloadBinaryFromFileRepo(id): any {
+        return this.binaryService.download(id);
     }
 
     async createDashboard(application, dashboardConfiguration, templateCatalogEntry: TemplateCatalogEntry, templateDetails: TemplateDetails, isGroupTemplate: boolean = false) {
         templateDetails = await this.uploadBinariesToC8Y(templateDetails);
+        const widgetsWithPlaceholder = _.cloneDeep(templateDetails.widgets);
         templateDetails = this.updateTemplateWidgetsWithInput(templateDetails,isGroupTemplate);
         let deviceId = "";
-        if(templateDetails?.input?.devices) {
+        if(templateDetails?.input?.devices && templateDetails.input.devices.length <= 1) {
             const device = templateDetails.input.devices.find(device => (device.reprensentation) && (device.reprensentation.id));
             if(device){ deviceId = device.reprensentation.id; }
         }
@@ -189,7 +202,7 @@ export class TemplateCatalogService {
                     templateDeviceId: "NO_DEVICE_TEMPLATE_ID"
                 }
             } : {})
-        }).then(({ data }) => {
+        }).then(async ({ data }) => {
             application.applicationBuilder.dashboards = [
                 ...application.applicationBuilder.dashboards || [],
                 {
@@ -199,17 +212,21 @@ export class TemplateCatalogService {
                     visibility: dashboardConfiguration.dashboardVisibility,
                     tabGroup: dashboardConfiguration.tabGroup,
                     roles: dashboardConfiguration.roles,
-                    ...(templateDetails.input.devices && templateDetails.input.devices.length > 0 && templateDetails.input.devices[0].reprensentation &&
+                    ...(templateDetails.input.devices && templateDetails.input.devices.length == 1 && templateDetails.input.devices[0].reprensentation &&
                         templateDetails.input.devices[0].reprensentation.id ? { deviceId: templateDetails.input.devices[0].reprensentation.id } : {}),
                     templateDashboard: {
                         id: templateCatalogEntry.dashboard,
                         name: templateCatalogEntry.title,
+                        availability: (templateCatalogEntry.availability ? templateCatalogEntry.availability: undefined),
                         devices: templateDetails.input.devices ? templateDetails.input.devices : [],
                         binaries: templateDetails.input.images ? templateDetails.input.images : [],
-                        staticBinaries: templateDetails.input.binaries ? templateDetails.input.binaries : []
+                        staticBinaries: templateDetails.input.binaries ? templateDetails.input.binaries : [],
+                        previewBinaryId:(templateCatalogEntry?.availability === 'SHARED' || templateCatalogEntry?.availability === 'EXPORT' ? templateDetails.previewBinaryId: undefined),
+                        widgets: (templateCatalogEntry?.availability === 'SHARED' || templateCatalogEntry?.availability === 'EXPORT' ? widgetsWithPlaceholder: undefined)
                     },
                     ...(isGroupTemplate ? { groupTemplate: true } : {}),
                     templateType: dashboardConfiguration.templateType
+
                 }
             ];
             if (window && window['aptrinsic']) {
@@ -220,19 +237,21 @@ export class TemplateCatalogService {
                     "dashboardName": templateCatalogEntry.title
                 });
             }
-            return this.appService.update({
+            await this.appService.update({
                 id: application.id,
                 applicationBuilder: application.applicationBuilder
             } as any);
-        }).then(() => {
+            this.appDataService.forceUpdate = true;
+            this.appDataService.refreshAppForDashboard.next();
             this.navigation.refresh();
         });
     }
 
     async updateDashboard(application, dashboardConfig: DashboardConfig, templateDetails: TemplateDetails, index: number, isGroupTemplate: boolean = false) {
-        templateDetails = this.updateTemplateWidgetsWithInput(templateDetails, isGroupTemplate);
+        const widgetsWithPlaceholder = _.cloneDeep(templateDetails.widgets);
+        templateDetails = this.updateTemplateWidgetsWithInput(templateDetails, isGroupTemplate);console.log("updatedtempDetails:",templateDetails)
         let deviceId = "";
-        if(templateDetails?.input?.devices) {
+        if(templateDetails?.input?.devices && templateDetails.input.devices.length <= 1) {
             const device = templateDetails.input.devices.find(device => (device.reprensentation) && (device.reprensentation.id));
             if(device){ deviceId = device.reprensentation.id; }
         }
@@ -256,24 +275,27 @@ export class TemplateCatalogService {
             visibility: dashboardConfig.visibility,
             tabGroup: dashboardConfig.tabGroup,
             roles: dashboardConfig.roles,
-            ...(templateDetails.input.devices && templateDetails.input.devices.length > 0 && templateDetails.input.devices[0].reprensentation &&
+            ...(templateDetails.input.devices && templateDetails.input.devices.length == 1 && templateDetails.input.devices[0].reprensentation &&
                 templateDetails.input.devices[0].reprensentation.id ? { deviceId: templateDetails.input.devices[0].reprensentation.id } : {}),
             templateDashboard: {
                 id: dashboard.templateDashboard.id,
                 name: dashboard.templateDashboard.title,
+                availability: (dashboard.templateDashboard.availability ? dashboard.templateDashboard.availability: undefined),
                 devices: templateDetails.input.devices ? templateDetails.input.devices : [],
                 binaries: templateDetails.input.images ? templateDetails.input.images : [],
-                staticBinaries: templateDetails.input.binaries ? templateDetails.input.binaries : []
+                staticBinaries: templateDetails.input.binaries ? templateDetails.input.binaries : [],
+                previewBinaryId:(dashboard.templateDashboard?.availability === 'SHARED' ? templateDetails.previewBinaryId: undefined),
+                widgets: (dashboard.templateDashboard?.availability === 'SHARED' || dashboard.templateDashboard?.availability === 'EXPORT' ? widgetsWithPlaceholder: undefined)
             },
             ...(isGroupTemplate ? { groupTemplate: true } : {}),
             templateType: dashboardConfig.templateType
         };
-
         await this.appService.update({
             id: application.id,
             applicationBuilder: application.applicationBuilder
         } as any);
-
+        this.appDataService.forceUpdate = true;
+        this.appDataService.refreshAppForDashboard.next();
         this.navigation.refresh();
     }
 
@@ -378,7 +400,11 @@ export class TemplateCatalogService {
             let widgetStringDescription: any = JSON.stringify(widget);
 
             images.forEach(image => {
-                widgetStringDescription = widgetStringDescription.replaceAll(`"{{${image.placeholder}.id}}"`, `"${image.id}"`);
+                if (image?.id) {
+                    widgetStringDescription = widgetStringDescription.replaceAll(`"{{${image.placeholder}.id}}"`, `"${image.id}"`);
+                } else {
+                    widgetStringDescription = widgetStringDescription.replaceAll(`"{{${image.placeholder}.id}}"`, `""`);
+                }
             })
 
             widget = JSON.parse(widgetStringDescription);
@@ -420,5 +446,28 @@ export class TemplateCatalogService {
         const matches = /filename="([^;]+)"/ig.exec(header);
         const fileName = (matches[1] || 'untitled').trim();
         return fileName;
+    }
+
+    async loadSharedTemplates(): Promise<TemplateCatalogEntry[]> {
+        return (await this.inventoryService.list( {pageSize: 2000, query: `type eq dashboard-catalog-templates`})).data as any;
+       
+    }
+
+    deleteSharedTemplate(id: any) : Promise<any> {
+        return this.inventoryService.delete(id)
+        .catch(err => {
+            console.error(err);
+            this.alertService.danger('Unable to delete Dashboard!');
+            return null;
+        });
+    }
+
+    deleteBinary(id): Promise<IResult<IManagedObjectBinary>> {
+        return this.binaryService.delete(id)
+        .catch(err => {
+            console.error(err);
+            this.alertService.danger('Unable to delete Binary!');
+            return null;
+        });
     }
 }

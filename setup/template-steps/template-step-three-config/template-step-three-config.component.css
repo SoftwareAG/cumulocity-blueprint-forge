@@ -8,3 +8,12 @@
 .title-width {
     width: 26%;
 }
+.btn-group > .btn:active {
+    background-color: powderblue !important;
+}
+.spinner-dashboard {
+    top: 2%;
+    position: absolute;
+    padding-left: 5%;
+}
+

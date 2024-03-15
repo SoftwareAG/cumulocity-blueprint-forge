@@ -20,7 +20,7 @@ import { AfterViewInit, Component, ViewEncapsulation } from '@angular/core';
 import { AlertService, AppStateService, C8yStepper, SetupComponent } from '@c8y/ngx-components';
 import { TemplateSetupStep } from './../../template-setup-step';
 import { TemplateCatalogSetupService } from '../../template-catalog-setup.service';
-import { catchError } from "rxjs/operators";
+import { catchError, take } from "rxjs/operators";
 import { GalleryItem, ImageItem } from 'ng-gallery';
 import { TemplateBlueprintDetails } from './../../template-setup.model';
 import { SetupConfigService } from './../../setup-config.service';
@@ -36,6 +36,9 @@ export class TemplateStepTwoDetailsComponent extends TemplateSetupStep implement
   public templateDetails: TemplateBlueprintDetails;
   configDetails: any;
   images: GalleryItem[];
+  blueprintForgeTemplateURL: any;
+  dataBlueprintForgeURL: any;
+  load: number;
 
   constructor(
     public stepper: C8yStepper,
@@ -48,18 +51,31 @@ export class TemplateStepTwoDetailsComponent extends TemplateSetupStep implement
     protected setupConfigService: SetupConfigService
   ) {
     super(stepper, step, setup, appState, alert, setupConfigService);
-    let load = 0;
+    this.load = 0;
+    
       this.setup.data$.subscribe(data => {
         if (data.blueprintForge && data.blueprintForge != '') {
-          if (load == 0) {
+          if (this.load == 0) {
           this.templateDetails = null;
           const templateURL = data.blueprintForge.templateURL;
           this.loadTemplateDetailsCatalog(templateURL);
-          load = load + 1;
-          }
+          this.load = this.load + 1;
+          } 
         }
       });
     
+  }
+
+  ngOnInit() {
+      this.setup.data$.subscribe(data => {
+      if (this.load > 0 && this.dataBlueprintForgeURL !== data.blueprintForge.templateURL) {
+        this.templateCatalogSetupService.dynamicDashboardTemplateDetails.next([]);
+          this.dataBlueprintForgeURL = data.blueprintForge.templateURL;
+            this.loadTemplateDetailsCatalog(data.blueprintForge.templateURL);
+      }
+        });
+      
+     
   }
 
   ngAfterViewInit() {
@@ -75,7 +91,6 @@ export class TemplateStepTwoDetailsComponent extends TemplateSetupStep implement
       .subscribe((catalog: TemplateBlueprintDetails) => {
 
         this.templateDetails = catalog;
-
         if (this.templateDetails && this.templateDetails.media) {
           this.templateDetails.media.forEach((media: any) => {
             media.image = this.templateCatalogSetupService.getGithubURL(media.image);
@@ -97,4 +112,6 @@ export class TemplateStepTwoDetailsComponent extends TemplateSetupStep implement
         this.alertService.danger("There is some technical error! Please try after sometime.");
       });
   }
+
+ 
 }

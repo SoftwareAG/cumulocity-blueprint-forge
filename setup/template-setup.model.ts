@@ -15,6 +15,9 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
  */
+
+import { TemplateCatalogEntry } from "./../builder/template-catalog/template-catalog.model";
+
 // This is for storing configuration
 export interface BlueprintForge {
     templateURL?: string;
@@ -32,12 +35,6 @@ export interface TemplateBlueprintEntry {
     comingSoon: boolean;
 }
 
-export interface WelcomeTemplate {
-    dashboardName: string;
-    dashboard: string;
-    description: string;
-}
-
 export interface TemplateBlueprintDetails {
     templateId: string;
     title: string;
@@ -47,6 +44,7 @@ export interface TemplateBlueprintDetails {
     plugins?: PluginDetails[];
     microservices?: MicroserviceDetails[];
     dashboards: Dashboards[];
+    dashboardLinks?:DashboardLink [];
     input : {
         devices?: DeviceDetails[];
     }
@@ -76,6 +74,7 @@ export interface MicroserviceDetails {
 }
 
 export interface Dashboards {
+    welcomeTemplates: any;
     title: string;
     icon: string;
     isDeviceRequired: boolean;
@@ -84,7 +83,6 @@ export interface Dashboards {
     selected?: boolean;
     configured?: boolean;
     deviceId?: string;
-    isChecked?: boolean;
     dashboardWidgets: DashboardWidgets[];
     isSelectAsset: boolean;
     isSelectType: boolean;
@@ -92,6 +90,13 @@ export interface Dashboards {
     isGroupDashboard: boolean;
     visibility: boolean;
     isMandatory: boolean;
+    dashboardTemplate?: TemplateCatalogEntry[];
+    linkWithDashboard?: string;
+    devices?: DeviceDetails[];
+    isSimulatorConfigExist?: boolean;
+    templateType?: number;
+    basicConfig?: WidgetDetail[];
+    isConfigRequred?: boolean;
 }
 export interface DashboardWidgets {
     id?: string;
@@ -122,6 +127,26 @@ export interface DashboardWidgets {
         name: string;
     };
 } 
+
+export interface DashboardLink {
+    dashboardName: string;
+    updatableProperty?: string;
+    targetDashboardName: string;
+    targetProperty?: string;
+    widgetComponentId?: string;
+}
+
+export interface WidgetDetail {
+    componentId?: string;
+    title?: string;
+    config?: WidgetConfig[];
+}
+
+export interface WidgetConfig {
+    type?: string;
+    fieldName?: string;
+    name?: string;
+}
 
 
 

@@ -47,15 +47,15 @@ export abstract class TemplateSetupStep {
      this.blueprintForge = this.setupConfigService.stepCompleted(this.stepper, this.step, this.setup);
      if(!this.blueprintForge) { this.blueprintForge = DEFAULT_CONFIG;}
   }
-  async next() {
+  async next(stepIndex?) {
     this.pending = true;
     try {
-      this.blueprintForge.selectedStepperIndex = this.stepper.selectedIndex
+      this.blueprintForge.selectedStepperIndex = (stepIndex) ? stepIndex : this.stepper.selectedIndex;
       this.config.blueprintForge = this.blueprintForge;
       const newConfig = { ...this.setup.data$.value, ...this.config };
       await this.appState.updateCurrentApplicationConfig(newConfig);
       this.step.completed = true;
-      this.setup.stepCompleted(this.stepper.selectedIndex);
+      this.setup.stepCompleted(stepIndex ? stepIndex : this.stepper.selectedIndex);
       this.setup.data$.next(newConfig);
       this.stepper.next();
     } catch (ex) {

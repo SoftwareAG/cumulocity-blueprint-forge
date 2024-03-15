@@ -16,13 +16,13 @@
 * limitations under the License.
  */
 
-import {Injectable} from "@angular/core";
-import {NavigatorNode, NavigatorNodeFactory} from "@c8y/ngx-components";
-import {BehaviorSubject, combineLatest, from, of} from "rxjs";
-import {mergeMap, map, startWith, switchMap, tap} from "rxjs/operators";
-import {InventoryService} from "@c8y/client";
-import {AppIdService} from "../app-id.service";
-import {DashboardConfig} from "../application-config/dashboard-config.component";
+import { Injectable } from "@angular/core";
+import { NavigatorNode, NavigatorNodeFactory } from "@c8y/ngx-components";
+import { BehaviorSubject, Observable, combineLatest, from, of } from "rxjs";
+import { mergeMap, map, startWith, switchMap, tap, shareReplay } from "rxjs/operators";
+import { InventoryService } from "@c8y/client";
+import { AppIdService } from "../app-id.service";
+import { DashboardConfig } from "../application-config/dashboard-config.component";
 import { AccessRightsService } from "./../../builder/access-rights.service";
 import { AppDataService } from "./../../builder/app-data.service";
 
@@ -31,31 +31,35 @@ import { AppDataService } from "./../../builder/app-data.service";
  */
 @Injectable()
 export class AppBuilderNavigationService implements NavigatorNodeFactory {
-    nodes = new BehaviorSubject<NavigatorNode[]>([]);
+    nodes: Observable<NavigatorNode[]>;
 
     private refreshSubject = new BehaviorSubject<void>(undefined);
 
-    constructor(private appIdService: AppIdService, private appDataService: AppDataService,
-        private accessRightsService: AccessRightsService, private inventoryService: InventoryService) {
+    constructor(
+        private appIdService: AppIdService,
+        private appDataService: AppDataService,
+        private accessRightsService: AccessRightsService,
+        private inventoryService: InventoryService
+    ) {
         // Listen for appId changes or to forced refreshes and then update the navigation menu
-        combineLatest([appIdService.appIdDelayedUntilAfterLogin$, this.refreshSubject]).pipe(
-            map(([appId]) => appId),
+        this.nodes = this.refreshSubject.pipe(
+            switchMap(() => appIdService.appIdDelayedUntilAfterLogin$),
+            // map(([appId]) => appId),
             switchMap(appId => {
                 if (appId) {
-                    return from(this.appDataService.getAppDetails(appId))
-                        .pipe(
-                            map(application => application.applicationBuilder.dashboards),
-                            mergeMap(dashboards => from(this.dashboardsToNavNodes(appId, dashboards)))
-                        );
+                    return from(this.appDataService.getAppDetails(appId)).pipe(
+                        map(application => application.applicationBuilder.dashboards),
+                        mergeMap(dashboards => from(this.dashboardsToNavNodes(appId, dashboards)))
+                    );
                 } else {
                     return of([]);
                 }
             }),
-            startWith([])
-        )
-        // Not sure why I have to use an intermediate behavior subject... seems like a c8y bug?
-        .subscribe(this.nodes);
+            startWith([]),
+            shareReplay(1)
+        );
     }
+
 
     refresh() {
         this.refreshSubject.next(undefined);
@@ -66,12 +70,12 @@ export class AppBuilderNavigationService implements NavigatorNodeFactory {
     }
 
     async dashboardsToNavNodes(appId: string, dashboards: DashboardConfig[]): Promise<NavigatorNode[]> {
-        const hierarchy =  {children: {}, node: new NavigatorNode({})};
-        for(const [i, dashboard] of dashboards.map((d, i) => [i, d] as [number, DashboardConfig])) {
+        const hierarchy = { children: {}, node: new NavigatorNode({}) };
+        for (const [i, dashboard] of dashboards.map((d, i) => [i, d] as [number, DashboardConfig])) {
             if (['no-nav', 'hidden'].includes(dashboard.visibility)) {
                 continue;
             }
-            if(!this.accessRightsService.userHasAccess(dashboard.roles)) {
+            if (!this.accessRightsService.userHasAccess(dashboard.roles)) {
                 continue;
             }
             const path = dashboard.name.split('/').filter(pathSegment => pathSegment != '');
@@ -95,11 +99,11 @@ export class AppBuilderNavigationService implements NavigatorNodeFactory {
 
                 let childAssets: any
                 if (dashboard.templateType && dashboard.templateType == 2) {
-                    childAssets = await this.inventoryService.listQuery({ __filter: { __and: [{ __or: [{ __has: 'c8y_IsDevice' }, { __has: 'c8y_IsAsset' }] }, { type: dashboard.deviceId }] } },{ pageSize: 2000})
-                    .catch(error => { console.error('error in group search', error) }) as any;
+                    childAssets = await this.inventoryService.listQuery({ __filter: { __and: [{ __or: [{ __has: 'c8y_IsDevice' }, { __has: 'c8y_IsAsset' }] }, { type: dashboard.deviceId }] } }, { pageSize: 2000 })
+                        .catch(error => { console.error('error in group search', error) }) as any;
                 } else {
                     childAssets = await this.inventoryService.childAssetsList(dashboard.deviceId, { pageSize: 2000, query: 'hasany(c8y_IsDevice,c8y_IsAsset)' })
-                    .catch(error => { console.error('error in group search', error) }) as any;
+                        .catch(error => { console.error('error in group search', error) }) as any;
                 }
                 if (childAssets && childAssets.data) {
                     for (const device of childAssets?.data) {

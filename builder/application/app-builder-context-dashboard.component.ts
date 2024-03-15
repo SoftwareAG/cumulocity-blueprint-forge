@@ -20,7 +20,7 @@ import {ActivatedRoute, Router} from "@angular/router";
 import { from, interval, Observable, Subscription } from "rxjs";
 import {ContextDashboardType} from "@c8y/ngx-components/context-dashboard";
 import { InventoryService, ApplicationService, UserService, IApplication, IManagedObject } from "@c8y/client";
-import {last} from "lodash-es";
+import {last, delay} from "lodash-es";
 //import {SMART_RULES_AVAILABILITY_TOKEN} from "./smartrules/smart-rules-availability.upgraded-provider";
 import {IApplicationBuilderApplication} from "../iapplication-builder-application";
 import {AppStateService} from "@c8y/ngx-components";
@@ -29,6 +29,8 @@ import { AccessRightsService } from "../../builder/access-rights.service";
 import { switchMap, tap } from "rxjs/operators";
 import { AppIdService } from "../../builder/app-id.service";
 import { DOCUMENT } from "@angular/common";
+import { BsModalService } from "ngx-bootstrap/modal";
+import { ImportDashboardCatalogModalComponent } from "../template-catalog/import-dashboard-catalog.component";
 
 @Component({
     selector: 'app-builder-context-dashboard',
@@ -42,6 +44,9 @@ import { DOCUMENT } from "@angular/common";
             <legacy-data-explorer *ngSwitchCase="'data_explorer'"></legacy-data-explorer>
             
             <ng-container *ngSwitchDefault>
+                <c8y-action-bar-item priority="9000" placement="more" *ngIf="importDashboardVisibility">
+                        <button class="btn btn-link" title="Import dashboard as template to Dashboard Catalog" (click)="showImportModal()"><i c8yIcon="data-import"></i>Add to Catalog</button>
+                </c8y-action-bar-item>
                 <ng-container [ngSwitch]="isGroupTemplate">
                     <dashboard-by-id *ngSwitchCase="false" [dashboardId]="dashboardId" [context]="context"
                                      [disabled]="disabled" style="display:block;"></dashboard-by-id>
@@ -85,6 +90,7 @@ export class AppBuilderContextDashboardComponent implements OnDestroy {
         pageSize: 2000,
         withTotalPages: true
     };
+    importDashboardVisibility = false;
     constructor(
         private activatedRoute: ActivatedRoute, private router:Router,
         private inventoryService: InventoryService,
@@ -95,7 +101,8 @@ export class AppBuilderContextDashboardComponent implements OnDestroy {
         private settingsService: SettingsService,
         private accessRightsService: AccessRightsService,
         private appIdService: AppIdService,
-        @Inject(DOCUMENT) private document: Document, private renderer: Renderer2
+        @Inject(DOCUMENT) private document: Document, private renderer: Renderer2,
+        private modalService: BsModalService
     ) {
         this.app = this.appIdService.appIdDelayedUntilAfterLogin$.pipe(
             switchMap(appId => from(
@@ -121,6 +128,9 @@ export class AppBuilderContextDashboardComponent implements OnDestroy {
             // A security hole but not a major one
             this.disabled = !userService.hasAllRoles(appStateService.currentUser.value, ["ROLE_INVENTORY_ADMIN", "ROLE_APPLICATION_MANAGEMENT_ADMIN"]);
 
+            // This is to make sure page is rendered before displaying option to user
+            this.displayImportDashboardOption();
+            
             // TODO: check to see if applicationId + dashboardId/tabGroup has changed we don't need to reset the tabs if they haven't - it'll stop the flashing
 
             const tabs = [];
@@ -264,6 +274,17 @@ export class AppBuilderContextDashboardComponent implements OnDestroy {
         }));
 
 
+    }
+
+    private displayImportDashboardOption() {
+        delay( ()=> {
+            this.importDashboardVisibility = this.hasAdminRights();
+        }, 3000);
+    }
+
+    showImportModal() {
+        this.modalService.show(ImportDashboardCatalogModalComponent, { backdrop: 'static', class: 'modal-lg', initialState: {dashboardId: this.dashboardId  } });
+        
     }
     ngOnDestroy(): void {
         this.subscriptions.unsubscribe();

@@ -1,0 +1,113 @@
+
+<form #stepForm="ngForm" name="form" class="d-contents">
+  <div class="container-fluid flex-no-shrink fit-w">
+    <div class="row separator-bottom">
+      <div class="col-md-8 col-md-offset-2 col-lg-6 col-lg-offset-3 p-t-24 p-l-16 p-r-16">
+        <div class="h3-style l-h-base text-medium">{{templateDetails?.title}}</div>
+        <p class="lead text-normal" translate>
+          {{templateDetails?.tagLine}}
+        </p>
+      </div>
+    </div>
+  </div>
+  <div class="inner-scroll flex-grow">
+    <div class="container-fluid fit-w">
+      <div class="row">
+        <div class="col-xs-12 col-sm-12 col-md-12 col-lg-12 ">
+      <div class="card-group interact-grid" style="text-align:center;padding-top: 10px;">
+        <div class="col-xs-12 col-sm-12 col-md-12">
+           <div class="card">
+          <div class="card-header">
+              <div class="col-xs-12 col-sm-12 col-md-12" style="text-align: left;">
+              </div>
+          </div>
+          <div class="card-block" id="dashboardDiv">
+            <div class="card-block" id="dashboardDiv"  style="min-height: 300px">
+              <div class="list-group">
+                  <div class="list-group-item d-flex" >
+                
+                
+                    <div class="list-item-body text-left">
+                      <div *ngFor="let dashboard of templateDetails?.dashboards; let i = index">
+                        <div class="d-flex row padd-bottom" *ngIf="(!dashboard.isSimulatorConfigExist && dashboard.isDeviceRequired) || (dashboard.isSimulatorConfigExist && dashboard.linkWithDashboard === '' && dashboard.isDeviceRequired)">
+                        <span translate class="col-sm-2 col-xs-12 title-width">{{dashboard.title}}</span>
+                        <div class="col-sm-3 col-xs-12 text-muted">
+                          Please choose Device/Group or Simulator
+                        </div>
+                        
+                        <div *ngIf="dashboard.isSimulatorConfigExist && dashboard.linkWithDashboard === ''" class="col-sm-2 col-xs-12 text-muted">
+                          <label class="c8y-switch">
+                            <input type="checkbox" id="dashboard-{{i}}" (change)="toggleToEnableSimulator($event, dashboard, i)"/>
+                            <span></span>Simulator
+                            </label>
+                            <c8y-loading *ngIf="isSpin"></c8y-loading>
+                        </div>
+                        
+                        <div *ngIf="fileUploadMessage" class="col-sm-4 col-xs-12 text-muted">
+                          {{fileUploadMessage}}
+                        </div>
+                        
+                        
+                        <div class="col-sm-5 col-xs-12 text-muted" >
+                        <div class="col-md-12 col-sm-12 pad-left">
+                         
+                          <form class="form-inline" name="deviceForm" #deviceForm="ngForm">
+
+                            <div class="form-group" class="col-sm-12 col-md-12 col-xs-12" style="padding:0">
+                              <div *ngIf="(!dashboard.isSimulatorConfigExist && dashboard.isDeviceRequired) || (dashboard.isSimulatorConfigExist && dashboard.linkWithDashboard === '' && dashboard.isDeviceRequired && !enableSimulator)" class="col-sm-6 col-md-6 col-xs-12 input-group-btn dropdown" style="padding-left: 0; max-width: 100%; text-align: end" dropdown>
+                                 
+                                <label class="sr-only" for="selected-device">Select Device/asset for dashboard</label>
+                                  
+                                <input *ngIf="dashboard.isDeviceRequired" name="selectedItem" class="form-control"
+                                  [(ngModel)]="dashboard.name" required readonly style="width: 100%"
+                                      id="selected-device-{{dashboard.title}}" placeholder="Select Device/Asset" type="text"
+                                     >
+                                
+                                <button type="button" dropdownToggle class="btn btn-primary dropdown-toggle c8y-dropdown">
+                                  <span >Select Device/Group</span>
+                                  <span class="caret"></span>
+                                </button>
+
+                                <ul class="dropdown-menu dropdown-menu-right" *dropdownMenu>
+                                  <li><button type="button" (click)="openDeviceSelectorDialog(dashboard, 0, i)">Device/Asset <i class="dlt-c8y-icon-question" title="Selected device/asset will be configured with one or more widgets in this dashboard" placement="right"></i></button></li>
+                                  <li><button type="button" (click)="openDeviceSelectorDialog(dashboard, 1, i)">Device Group <i class="dlt-c8y-icon-question" title="Selected device group or devices/assets of selected device group will be configured with one or more widgets in this dashboard" placement="right"></i></button></li>
+                                  <li><button type="button" (click)="openDeviceSelectorDialog(dashboard, 2, i)">Device/Asset Type<i class="dlt-c8y-icon-question" title="All devices/assets of selected device/asset type will be configured with one or more widgets in this dashboard" placement="right"></i></button></li>
+                                </ul> 
+                              </div>
+
+                              <div class="col-md-3"></div>
+                                </div>
+                          </form>
+                        </div>
+                      </div>
+                      </div>
+                    </div>
+                    </div>
+                  </div>
+                </div>
+            </div>
+            </div>
+          </div>
+        </div>
+        
+        <div  class="col-xs-12 col-sm-4 col-md-3">
+          
+        </div>
+      </div>
+      </div>
+      </div>
+    </div>
+  </div>
+
+
+  <c8y-template-setup-stepper-buttons
+    [formValid]="deviceFormValid ? true : false"
+    [index]="stepper.selectedIndex"
+    (onNext)="configureApp(currentApp)"
+    (onBack)="back()"
+  >
+  </c8y-template-setup-stepper-buttons>
+  <div class="alerts">
+    <c8y-alert-outlet></c8y-alert-outlet>
+   </div>
+</form>

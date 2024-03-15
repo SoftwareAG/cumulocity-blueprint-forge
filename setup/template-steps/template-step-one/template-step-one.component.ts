@@ -21,8 +21,9 @@ import { AlertService, AppStateService, C8yStepper, SetupComponent } from '@c8y/
 import { TemplateSetupStep } from './../../template-setup-step';
 import { TemplateCatalogSetupService } from '../../template-catalog-setup.service';
 import { catchError } from "rxjs/operators";
-import { TemplateBlueprintDetails, TemplateBlueprintEntry, WelcomeTemplate } from './../../template-setup.model';
+import { TemplateBlueprintDetails, TemplateBlueprintEntry } from './../../template-setup.model';
 import { SetupConfigService } from './../../setup-config.service';
+import { TemplateCatalogEntry } from './../../../builder/template-catalog/template-catalog.model';
 
 @Component({
   selector: 'c8y-template-step-one',
@@ -34,7 +35,7 @@ export class TemplateStepOneComponent extends TemplateSetupStep implements OnIni
 
 
   public templates: Array<TemplateBlueprintEntry> = [];
-  public welcomeTemplate: Array<WelcomeTemplate> = [];
+  public welcomeTemplate: Array<TemplateCatalogEntry> = [];
 
   public filterTemplates: Array<TemplateBlueprintEntry> = [];
   templateDetails: TemplateBlueprintDetails;

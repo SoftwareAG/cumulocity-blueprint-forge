@@ -20,12 +20,15 @@
 export interface TemplateCatalogEntry {
     title: string;
     description: string;
-    thumbnail: string;
+    thumbnail?: string;
     device?: string;
     manufactur?: string;
-    useCase: string;
+    useCase?: string;
     dashboard: string;
-    comingSoon: boolean;
+    comingSoon?: boolean;
+    availability?: string;
+    templateDetails?: TemplateDetails; // For Import templates
+    thumbnailBinaryId?: any;
 }
 
 export interface TemplateDetails {
@@ -37,6 +40,7 @@ export interface TemplateDetails {
     },
     description: string;
     preview: string;
+    previewBinaryId?: any;
     widgets: Array<TemplateDashboardWidget>;
 }
 
@@ -83,6 +87,7 @@ export interface DependencyDescription {
     visible?: boolean;
     contextPath?: string;
     type?: string;
+    binaryLink?:string;
 }
 
 export interface CumulocityDashboard {

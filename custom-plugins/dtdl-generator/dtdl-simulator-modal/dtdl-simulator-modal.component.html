@@ -1,0 +1,48 @@
+<div class="modal-header text-center bg-primary">
+    <h4 class="text-uppercase" style="margin:0; letter-spacing: 0.15em;">Simulator Configuration</h4>
+</div>
+<div class="m-t-8">
+    <div class="row simConfig-modal-form-fields">
+        <div class="col-sm-12">
+            <label for="type-selector">Select simulator type</label>
+            <div class="c8y-select-wrapper min-width-100">
+                <select id="type-selector" class="form-control" [(ngModel)]="typeSelected">
+                    <option *ngFor="let option of typeOptions" [value]="option.value">{{option.name}}</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    <div class="row simConfig-modal-form-fields">
+        <div class="col-sm-12">
+            <label for="page-selector">Select measurement limit <span><i c8yIcon="help" title="Please provide the count of measurements for simulation."></i></span></label>
+            <div class="c8y-select-wrapper min-width-100">
+                <select id="page-selector" class="form-control" [(ngModel)]="pageSize">
+                    <option *ngFor="let option of pageOptions" [value]="option.value">{{option.name}}</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    <div class="row simConfig-modal-form-fields" *ngIf="series.length>0; else noMeasurements">
+        <div class="col-sm-12">
+            <label for="measurement-selector">Select measurements</label>
+            <div class="form-group">
+                <ng-select id="measurement-selector" [items]="series" bindLabel="type" [multiple]="true" [closeOnSelect]="false"
+                [searchable]="true"
+                [(ngModel)]="selectedMeasurements">
+              </ng-select>
+            </div>
+        </div>
+    </div>
+    <ng-template #noMeasurements>
+        <div class="row simConfig-modal-form-fields">
+            NO MEASUREMENTS FOUND
+        </div>
+    </ng-template>
+    
+
+</div>
+
+<div class="modal-footer">
+    <button type="button" class="btn btn-default" (click)="cancelClicked()">Cancel</button>
+    <button type="button" class="btn btn-primary" [disabled]="typeSelected==0 || selectedMeasurements.length==0" (click)="createSimulatorClicked()">Generate</button>
+</div>

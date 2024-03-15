@@ -1,0 +1,10 @@
+/*over writting modal header color to more suitable color*/
+.modal-header {
+    color: var(--c8y-btn-primary-color-default) !important;
+}
+
+.simConfig-modal-form-fields{
+    display: flex; 
+    justify-content: center; 
+    padding: 5% 5% 0% 5%;
+}

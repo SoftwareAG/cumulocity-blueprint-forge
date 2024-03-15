@@ -17,7 +17,9 @@
  */
 
 import { Component, OnInit, ViewEncapsulation } from "@angular/core";
-import { ApplicationService, IApplication, IManagedObject } from '@c8y/client';
+import { DomSanitizer } from "@angular/platform-browser";
+import {cloneDeep} from "lodash-es";
+import { ApplicationService, IApplication, IManagedObject, InventoryService } from '@c8y/client';
 import { DeviceSelectorModalComponent } from "../utils/device-selector-modal/device-selector.component";
 import { BsModalRef, BsModalService } from "ngx-bootstrap/modal";
 import { DependencyDescription, TemplateCatalogEntry, TemplateDetails } from "./template-catalog.model";
@@ -32,6 +34,7 @@ import { catchError } from "rxjs/operators";
 import { AccessRightsService } from "../../builder/access-rights.service";
 import { ProgressIndicatorService } from "../../builder/utils/progress-indicator-modal/progress-indicator.service";
 import { ApplicationBinaryService } from "../../builder/application-binary.service";
+import { AlertMessageModalComponent } from "../utils/alert-message-modal/alert-message-modal.component";
 
 
 enum TemplateCatalogStep {
@@ -57,6 +60,8 @@ export class TemplateCatalogModalComponent implements OnInit {
 
     public filterTemplates: Array<TemplateCatalogEntry> = [];
 
+    public searchFilterTemplates: Array<TemplateCatalogEntry> = [];
+
     public selectedTemplate: TemplateCatalogEntry;
 
     public templateDetails: TemplateDetails;
@@ -72,6 +77,8 @@ export class TemplateCatalogModalComponent implements OnInit {
     private groupTemplate = false;
 
     private appList = [];
+
+    private sharedTemplates:any = [];
 
     public dashboardConfiguration = {
         dashboardId: '12598412',
@@ -98,12 +105,20 @@ export class TemplateCatalogModalComponent implements OnInit {
     private microserviceDownloadProgress = interval(3000);
     private microserviceDownloadProgress$: Subscription;
     isMSEnabled: boolean = false;
+    isPreviewLoading: boolean = false;
+    isThumbnailLoading: boolean = false;
+
+    fileSelected: File;
+    fileJson:any;
+    importLoading:boolean=false;
+
+    filter='1'; //value of filter selected
 
     constructor(private modalService: BsModalService, private modalRef: BsModalRef, private appService: ApplicationService,
         private catalogService: TemplateCatalogService, private componentService: DynamicComponentService,
         private alertService: AlertService, private widgetCatalogService: WidgetCatalogService,
-        private applicationBinaryService: ApplicationBinaryService,
-        private accessRightsService: AccessRightsService, private progressIndicatorService: ProgressIndicatorService) {
+        private applicationBinaryService: ApplicationBinaryService, private sanitizer: DomSanitizer,
+        private accessRightsService: AccessRightsService, private progressIndicatorService: ProgressIndicatorService,private invService: InventoryService) {
         this.onSave = new Subject();
         this.onCancel = new Subject();
     }
@@ -130,13 +145,35 @@ export class TemplateCatalogModalComponent implements OnInit {
                 console.log('Dashboard Catalog: Error in primary endpoint! using fallback...');
                 return this.catalogService.getTemplateCatalogFallBack()
             }))
-            .subscribe((catalog: Array<TemplateCatalogEntry>) => {
+            .subscribe(async (catalog: Array<TemplateCatalogEntry>) => {
                 this.hideLoadingIndicator();
                 this.templates = catalog;
+                this.sharedTemplates = await this.catalogService.loadSharedTemplates();
+                if(this.sharedTemplates && this.sharedTemplates.length > 0){
+                    this.sharedTemplates.forEach(shared => {
+                        this.templates.push( {
+                            ...shared.template,
+                            id: shared.id
+                        });
+                    });
+                }
                 this.filterTemplates = (this.templates ? this.templates : []);
+                this.searchFilterTemplates=(this.filterTemplates ? this.filterTemplates : []);
                 this.filterTemplates.forEach(template => {
-                    if (template.thumbnail && template?.thumbnail != '') {
-                        template.thumbnail = this.catalogService.getGithubURL(template.thumbnail);
+                    if ((template.thumbnail && template?.thumbnail != '')  || (template.thumbnailBinaryId && template.thumbnailBinaryId !='')) {
+                        if(template.availability && (template.availability === "SHARED" || template.availability === 'EXPORT')){
+                            if (template.thumbnailBinaryId) {
+                                this.isThumbnailLoading = true;
+                                this.catalogService.downloadBinaryFromFileRepo(template.thumbnailBinaryId).
+                                    then(async (res: { blob: () => Promise<any>; }) => {
+                                        this.isThumbnailLoading = false;
+                                        const blb = await res.blob();
+                                        template.thumbnail = this.sanitizer.bypassSecurityTrustResourceUrl(URL.createObjectURL(blb)) as any;
+                                    });
+                            }
+                        } else {
+                            template.thumbnail = this.catalogService.getGithubURL(template.thumbnail);
+                        }
                     }
                 })
             }, error => {
@@ -152,9 +189,24 @@ export class TemplateCatalogModalComponent implements OnInit {
     }
 
     async loadTemplateDetails(template: TemplateCatalogEntry): Promise<void> {
-        this.showLoadingIndicator();
-        
-        this.catalogService.getTemplateDetails(template.dashboard)
+        if(template.availability && (template.availability === 'SHARED' || template.availability === 'EXPORT') ) {
+            this.templateDetails = null;
+            this.templateDetails = cloneDeep(template.templateDetails);
+            if (this.templateDetails.preview || this.templateDetails.previewBinaryId) {
+                if(this.templateDetails.previewBinaryId){
+                    this.isPreviewLoading = true;
+                    this.catalogService.downloadBinaryFromFileRepo(this.templateDetails.previewBinaryId).
+                    then(async (res: { blob: () => Promise<any>; }) => {
+                        const blb = await res.blob();
+                        this.isPreviewLoading = false;
+                        this.templateDetails.preview = this.sanitizer.bypassSecurityTrustResourceUrl(URL.createObjectURL(blb)) as any;
+                    });
+                }
+            }
+            this.updateDepedencies();
+        } else {
+            this.showLoadingIndicator();
+            this.catalogService.getTemplateDetails(template.dashboard)
             .pipe(catchError(err => {
                 console.log('Dashboard Catalog Details: Error in primary endpoint! using fallback...');
                 return this.catalogService.getTemplateDetailsFallBack(template.dashboard);
@@ -167,6 +219,7 @@ export class TemplateCatalogModalComponent implements OnInit {
                 }
                 this.updateDepedencies();
             });
+        }
     }
 
     async updateDepedencies() {
@@ -206,19 +259,19 @@ export class TemplateCatalogModalComponent implements OnInit {
         this.currentStep = TemplateCatalogStep.CATALOG;
     }
 
-    openDeviceSelectorDialog(index: number, templateType: number): void {
+    openDeviceSelectorDialog(device: any, index: number, templateType: number): void {
        
         switch (templateType) {
             case 1:
-                this.assetButtonText = "Device Group";
+                device.assetButtonText = "Device Group";
                 this.groupTemplate = true;
                 break;
             case 2:
-                this.assetButtonText = "Device/Asset Type";
+                device.assetButtonText = "Device/Asset Type";
                 this.groupTemplate = true;
                 break;
             default:
-                this.assetButtonText = "Device/Asset";
+                device.assetButtonText = "Device/Asset";
                 this.groupTemplate = false;
                 break;
         }
@@ -267,6 +320,9 @@ export class TemplateCatalogModalComponent implements OnInit {
     async onSaveButtonClicked() {
         this.showProgressModalDialog('Create Dashboard ...')
         this.dashboardConfiguration.dashboardName = (this.dashboardPath ? `${this.dashboardPath}/${this.dashboardConfiguration.dashboardName}` : this.dashboardConfiguration.dashboardName);
+        if(this.templateDetails.input.devices && this.templateDetails.input.devices.length > 1){
+            this.groupTemplate = false;
+        }
         await this.catalogService.createDashboard(this.app, this.dashboardConfiguration, this.selectedTemplate, this.templateDetails, this.groupTemplate);
 
         this.hideProgressModalDialog();
@@ -380,13 +436,13 @@ export class TemplateCatalogModalComponent implements OnInit {
                 });
             } else {
                 this.progressIndicatorService.setProgress(10);
-                this.catalogService.downloadBinary(dependency.link)
+                    this.catalogService.downloadBinary(dependency.link?dependency.link : dependency.binaryLink)
                     .subscribe(data => {
                         this.progressIndicatorService.setProgress(20);
                         const blob = new Blob([data], {
                             type: 'application/zip'
                         });
-                        const fileName = dependency.link.replace(/^.*[\\\/]/, '');
+                        const fileName =dependency.link? dependency.link.replace(/^.*[\\\/]/, '') : dependency.binaryLink.replace(/^.*[\\\/]/, '');
                         const fileOfBlob = new File([blob], fileName);
                         this.widgetCatalogService.installPackage(fileOfBlob).then(async () => {
                             dependency.isInstalled = true;
@@ -433,6 +489,9 @@ export class TemplateCatalogModalComponent implements OnInit {
         return this.dashboardConfiguration.dashboardName && this.dashboardConfiguration.dashboardName.length >= 0;
     }
 
+    private alertModalDialog(message: any): BsModalRef {
+        return this.modalService.show(AlertMessageModalComponent, { class: 'c8y-wizard', initialState: { message } });
+    }
     private verifyWidgetCompatibility(dependency: DependencyDescription) {
         if (this.widgetCatalogService.isCompatiblieVersion(dependency)) {
             dependency.isSupported = true;
@@ -455,10 +514,101 @@ export class TemplateCatalogModalComponent implements OnInit {
     }
 
     applyFilter() {
-        if (this.templates && this.templates.length > 0) {
-            this.filterTemplates = this.templates.filter((template => template.title.toLowerCase().includes(this.searchTemplate.toLowerCase())));
-            this.filterTemplates = [...this.filterTemplates];
+        if (this.filterTemplates && this.filterTemplates.length > 0) {
+            this.searchFilterTemplates = this.filterTemplates.filter((template => 
+                template.title.toLowerCase().includes(this.searchTemplate.toLowerCase())  
+                ));
+            this.searchFilterTemplates = [...this.searchFilterTemplates];
         }
+    }
 
+    async deleteTemplate(template: any) {
+        if(template && template.id) {
+            const alertMessage = {
+                title: 'Delete Template',
+                description: `You are about to delete this template from your tenant. This operation is irreversible. Do you want to proceed?`,
+                type: 'danger',
+                alertType: 'confirm', //info|confirm,
+                confirmPrimary: true //confirm Button is primary
+            }
+            const installDemoDialogRef = this.alertModalDialog(alertMessage);
+            await installDemoDialogRef.content.event.subscribe(async data => {
+                if (data && data.isConfirm) {
+                    if(template.thumbnailBinaryId) { await this.catalogService.deleteBinary(template.thumbnailBinaryId); }
+                    if(template?.templateDetails?.previewBinaryId) { await this.catalogService.deleteBinary(template.templateDetails.previewBinaryId); }
+                    this.catalogService.deleteSharedTemplate(template.id).then(() => {
+                        this.templates = [... this.templates.filter( (dbTemplate: any) => dbTemplate.id !==  template.id)];
+                        this.applyFilter();
+                        this.alertService.add({
+                            text: 'Dashboard template deleted successfuly.',
+                            type: 'success'
+                          });
+                    });
+                }
+            });
+        }
+    }
+
+    async onFileSelected(files: FileList){
+        this.fileSelected = files.item(0);
+        this.fileJson = JSON.parse(await( this.readFileContents(this.fileSelected)));
+    }
+
+    readFileContents(file: File): Promise<string> {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                resolve(reader.result as string);
+            };
+            reader.onerror = () => {
+                reader.abort();
+                reject(new DOMException("Problem parsing input file."));
+                this.alertService.danger("Problem parsing input file.");
+            };
+            reader.readAsText(file);
+        });
+    }
+
+    async onImportClicked(){
+        this.importLoading=true;
+        await this.invService.create({
+            c8y_Global: {},
+            type: "dashboard-catalog-templates",
+            template: this.fileJson
+        }).then(() => {
+            this.alertService.success("Dashboard Template imported succesfuly");
+            this.importLoading=false;
+        }).catch(err => {
+                this.alertService.danger("Failed to import Dashboard Template");
+                this.importLoading=false;
+            });
+        this.loadTemplateCatalog();
+    }
+
+    getImportButtonText():string{
+        return this.importLoading ? "Importing" : "Import";
+    }
+
+    onFilterChange(){
+        if (this.templates && this.templates.length>0) {
+            switch (this.filter) {
+                case '1':
+                    this.filterTemplates = this.templates;
+                    break;
+                case '2':
+                    this.filterTemplates = this.templates.filter(template => template.manufactur && template.manufactur != "");
+                    break;
+                case '3':
+                    this.filterTemplates = this.templates.filter(template => template?.manufactur == '');
+                    break;
+                case '4':
+                    this.filterTemplates = this.templates.filter(template => template.availability && template.availability == 'EXPORT');
+                    break;
+                case '5':
+                    this.filterTemplates = this.templates.filter(template => template.availability && template.availability == 'SHARED');
+                    break;
+            }
+        }
+        this.searchFilterTemplates= this.filterTemplates ? this.filterTemplates : [];
     }
 }

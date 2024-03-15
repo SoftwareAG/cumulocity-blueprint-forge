@@ -16,7 +16,7 @@
 * limitations under the License.
  */
 
-import {distinctUntilChanged, filter, first, map, mapTo, switchMap} from "rxjs/operators";
+import {distinctUntilChanged, filter, first, map, mapTo, switchMap, tap} from "rxjs/operators";
 import {BehaviorSubject, Observable, of} from "rxjs";
 import {Injectable} from "@angular/core";
 import {AppStateService} from "@c8y/ngx-components";
@@ -30,11 +30,11 @@ export class AppIdService {
     /** same as the appId$ but the value is pended until after the user logs in */
     readonly appIdDelayedUntilAfterLogin$: Observable<string|undefined>;
 
-    constructor(router: Router, appStateService: AppStateService) {
+    constructor(private router: Router, private appStateService: AppStateService) {
         router.events.pipe(
                 filter(event => event instanceof ActivationEnd),
                 switchMap(() => get(router.routerState.root, 'firstChild.paramMap') as Observable<ParamMap> | undefined || of(undefined)),
-                map(paramMap => paramMap != null ? paramMap.get('applicationId') : undefined),
+                map(paramMap => paramMap != null && paramMap.get('applicationId') ? paramMap.get('applicationId') : this.getAppId()),
                 distinctUntilChanged()
             )
             .subscribe(this.appId$);
@@ -48,6 +48,13 @@ export class AppIdService {
         ));
     }
 
+    // Required for navigator plugin
+    private getAppId() {
+        if(this.appId$ && this.appId$.getValue()){
+            return this.appId$.getValue();
+        }
+        return undefined;
+    }
     /** Gets the current appId (from the url eg: '/application/123/dashboard/xyz' => '123') */
     getCurrentAppId(): string | undefined {
         return this.appId$.getValue();

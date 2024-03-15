@@ -1,0 +1,92 @@
+<div class="row dflex-center">
+    <div class="col-xs-12 col-sm-12 col-md-3">
+        <form name="searchForm">
+            <div id="search" class="input-group input-group-search">
+                <input type="search" name="device-search" class="form-control" placeholder="Device name, start typing"
+                    autocomplete="off" [(ngModel)]="searchString" (keyup)="searchForDevice()" />
+                <span class="input-group-addon">
+                    <i c8yIcon="search" *ngIf="!searchString || searchString.length === 0"></i>
+                    <i c8yIcon="times" class="text-muted" *ngIf="searchString && searchString.length > 0"
+                        (click)="clearSearch()"></i>
+                </span>
+            </div>
+        </form>
+        <div class="list-group device-list" *ngIf="templateType !== 2">
+            <button *ngFor="let device of devices" type="button"
+                [ngClass]="{'device-selected': isDeviceSelected(device)}" class="list-group-item"
+                (click)="selectDevice(device)">{{device.name}} <i c8yIcon="check" *ngIf="isDeviceSelected(device)"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="col-xs-12 col-sm-12 col-md-3" class="dflex-center">
+        <div class="dflex-center">
+            <button type="button" class="btn btn-primary" (click)="getMeasurements('Generate DTDL')"
+                [disabled]="!this.deviceId">Generate DTDL</button>
+            <button class="m-t-8 btn-help btn-help--sm" [attr.aria-label]="'help'" [popover]="generateDTDLPopover"
+                placement="right" triggers="focus" type="button">
+            </button>
+        </div>
+        <div class="dflex-center m-l-16">
+            <button type="button" class="btn btn-default" (click)="getMeasurements('Generate simulator')"
+                [disabled]="!this.deviceId">Simulator Configurator</button>
+            <button class="m-t-8 btn-help btn-help--sm" [attr.aria-label]="'help'" [popover]="generateSimConfigPopover"
+                placement="right" triggers="focus" type="button">
+            </button>
+        </div>
+    </div>
+</div>
+<div class="dtdl-body-div min-width-100">
+    <div *ngIf="isLoading; else loadingComplete" class="loading-div">
+        <c8y-loading></c8y-loading>
+    </div>
+    <ng-template #loadingComplete>
+        <h5 *ngIf="dtdlCreated" class="p-t-8 dflex-center">{{deviceName}}_DTDL Generated:</h5>
+        <h5 *ngIf="simConfigCreated" class="p-t-8 dflex-center">{{deviceName}}_config Generated:</h5>
+        <div *ngIf="dtdlCreated || simConfigCreated" class="dflex-center p-t-4">
+            <div *ngIf="dtdlCreated" class="dflex-center p-t-4 min-width-100">
+                <div *ngIf="!deviceChanged;else infoText" class="dflex-center min-width-100">
+                    <textarea readonly class="dtdl-textArea" #dtdlText>{{dtdlObjects | json}}</textarea>
+                    <button type="button" class="btn btn-clean m-l-4" (click)="copyInputMessage(dtdlText)"
+                        title="Copy to clipboard"><i
+                            class="c8y-icon dlt-c8y-icon-copy"></i></button>
+                </div>
+            </div>
+            <div *ngIf="simConfigCreated" class="dflex-center p-t-4 min-width-100">
+                <div *ngIf="!deviceChanged;else infoText" class="dflex-center min-width-100">
+                    <textarea readonly class="dtdl-textArea" #simConfigText>{{dtdlSimulatorConfig | json}}</textarea>
+                    <button type="button" class="btn btn-clean m-l-4" (click)="copyInputMessage(simConfigText)"
+                        title="Copy to clipboard"><i
+                            class="c8y-icon dlt-c8y-icon-copy"></i></button>
+                </div>
+            </div>
+        </div>
+        <p *ngIf="simConfigCreated" class="p-t-8 dflex-center"><span><i c8yIcon="info"></i></span> This simulator
+            configuration
+            file is compatible with the simulators of Application Builder and Blueprint Forge</p>
+        <div *ngIf="dtdlCreated || simConfigCreated" class="row dflex-center m-t-8">
+            <button [disabled]="deviceChanged" type="button" class="btn btn-default" title="Save to file repository"
+                (click)="saveToFileRepository()"><i class="c8y-icon dlt-c8y-icon-save"></i> Save to File
+                Repository</button>
+            <button [disabled]="deviceChanged" type="button" class="btn btn-default" (click)="download()"><i
+                    class="c8y-icon dlt-c8y-icon-download"></i> Download</button>
+        </div>
+    </ng-template>
+</div>
+
+<ng-template #infoText>
+    <textarea readonly class="dtdl-textArea">Click on GENERATE button to perform operation.</textarea>
+    <button [disabled]="deviceChanged" type="button" class="btn btn-clean m-l-4"
+        (click)="copyInputMessage(dtdlText)" title="Copy to clipboard"><i
+            class="c8y-icon dlt-c8y-icon-copy"></i></button>
+</ng-template>
+
+<ng-template #generateDTDLPopover>
+    <div [innerHtml]="generateDTDLPopoverText">
+    </div>
+</ng-template>
+
+<ng-template #generateSimConfigPopover>
+    <div [innerHtml]="generateSimConfigPopoverText">
+    </div>
+</ng-template>

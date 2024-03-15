@@ -21,8 +21,8 @@ import { BehaviorSubject, Observable } from "rxjs";
 import { catchError, map } from "rxjs/operators";
 import { has, get } from "lodash-es";
 import { ApplicationService, InventoryBinaryService, InventoryService } from "@c8y/ngx-components/api";
-import { CumulocityDashboard } from "builder/template-catalog/template-catalog.model";
-import { TemplateBlueprintDetails, TemplateBlueprintEntry, WelcomeTemplate } from "./template-setup.model";
+import { CumulocityDashboard, TemplateCatalogEntry } from "./../builder/template-catalog/template-catalog.model";
+import { TemplateBlueprintDetails, TemplateBlueprintEntry } from "./template-setup.model";
 import { AppBuilderExternalAssetsService } from "app-builder-external-assets";
 
 const packageJson = require('./../package.json');
@@ -41,8 +41,24 @@ export class TemplateCatalogSetupService {
     public templateData = new BehaviorSubject<TemplateBlueprintDetails>(undefined);
     templateData$ = this.templateData.asObservable();
 
-    public welcomeTemplateData = new BehaviorSubject<WelcomeTemplate>(undefined);
+    public welcomeTemplateData = new BehaviorSubject<TemplateCatalogEntry>(undefined);
     welcomeTemplateData$ = this.welcomeTemplateData.asObservable();
+
+    public blankTemplate = new BehaviorSubject(false);
+    blankTemplate$ = this.blankTemplate.asObservable();
+
+    public welcomeTemplateSelected = new BehaviorSubject("Default Template");
+    welcomeTemplateSelected$ = this.welcomeTemplateSelected.asObservable();
+
+    public dynamicDashboardTemplate = new BehaviorSubject<any>(undefined);
+    dynamicDashboardTemplate$ = this.dynamicDashboardTemplate.asObservable();
+
+    public dynamicDashboardTemplateDetails =  new BehaviorSubject<any>(undefined);
+    dynamicDashboardTemplateDetails$ = this.dynamicDashboardTemplateDetails.asObservable();
+
+    public indexOfDashboardToUpdateTemplate = new BehaviorSubject<any>(null); 
+    indexOfDashboardToUpdateTemplate$ = this.indexOfDashboardToUpdateTemplate.asObservable();
+
 
     constructor(private http: HttpClient, private inventoryService: InventoryService,
         private appService: ApplicationService,
@@ -111,10 +127,10 @@ export class TemplateCatalogSetupService {
             
             welcomeTemplate.map(entry => {
                 return {
-                    dashboardName: get(entry, 'dashboardName'),
+                title: get(entry, 'dashboardName'),
                 dashboard: get(entry, 'dashboard'),
                 description: get(entry, 'description')
-                } as WelcomeTemplate;
+                } as TemplateCatalogEntry;
             });
             template.map(entry => {
                 return {
@@ -143,6 +159,7 @@ export class TemplateCatalogSetupService {
                 microservices: get(catalog, 'microservices'),
                 dashboards: get(catalog, 'dashboards'),
                 description: get(catalog, 'description'),
+                dashboardLinks: get(catalog, 'dashboardLinks'),
                 input: get(catalog, 'input')
             } as TemplateBlueprintDetails;
 

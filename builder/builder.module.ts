@@ -21,7 +21,7 @@ import {RouterModule} from "@angular/router";
 import {DashboardConfigComponent} from "./application-config/dashboard-config.component";
 import {EditDashboardModalComponent} from "./application-config/edit-dashboard-modal.component";
 import {NewDashboardModalComponent} from "./application-config/new-dashboard-modal.component";
-import {AppStateService, CoreModule, HOOK_NAVIGATOR_NODES, LoginService} from "@c8y/ngx-components";
+import {AppStateService, CoreModule, HookProviderTypes, LoginService, hookNavigator} from "@c8y/ngx-components";
 import {IconSelectorModule} from "../icon-selector/icon-selector.module";
 import {TooltipModule} from "ngx-bootstrap/tooltip";
 import {SortableModule} from "ngx-bootstrap/sortable";
@@ -114,10 +114,9 @@ import { SettingsService } from "./settings/settings.service";
     ],
     providers: [
         AppBuilderNavigationService,
-        { provide: HOOK_NAVIGATOR_NODES, useExisting: AppBuilderNavigationService, multi: true },
-        AppBuilderConfigNavigationRegistrationService,
-        AppBuilderConfigNavigationService,
-        { provide: HOOK_NAVIGATOR_NODES, useExisting: AppBuilderConfigNavigationService, multi: true }
+        AppBuilderConfigNavigationService, AppBuilderConfigNavigationRegistrationService,
+        hookNavigator(AppBuilderNavigationService, {providerType: HookProviderTypes.ExistingProvider}),
+        hookNavigator(AppBuilderConfigNavigationService, {providerType: HookProviderTypes.ExistingProvider})
     ]
 })
 export class BuilderModule {
